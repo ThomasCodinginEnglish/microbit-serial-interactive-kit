@@ -6,10 +6,23 @@
 <style>
   body { font-family: sans-serif; }
   #buttons { display: flex; flex-wrap: wrap; width: 450px; }
-  .btnContainer { display: flex; flex-direction: column; align-items: center; margin: 5px; }
-  .btn { width: 80px; height: 40px; margin-bottom: 2px; }
-  .labelInput { width: 80px; font-size: 14px; text-align: center; }
-  #log { width: 450px; height: 150px; border: 1px solid #aaa; overflow-y: auto; padding: 5px; }
+  .btnContainer { position: relative; width: 80px; height: 40px; margin: 5px; }
+  .btn { width: 100%; height: 100%; font-size: 14px; }
+  .labelOverlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    text-align: center;
+    line-height: 40px;
+    pointer-events: auto;
+    background: transparent;
+    font-size: 14px;
+    border: none;
+    color: black;
+  }
+  #log { width: 450px; height: 150px; border: 1px solid #aaa; overflow-y: auto; padding: 5px; margin-top: 10px; }
   #textToSend { width: 300px; font-size: 16px; margin-bottom: 10px; }
 </style>
 </head>
@@ -32,86 +45,10 @@ let buttonsDiv = document.getElementById('buttons');
 // 10 commands
 let commands = ["LED1","LED2","LED3","LED4","LED5","SMILE","SAD","HEART","STAR","CLEAR"];
 
-// Create button containers
+// Create buttons with overlay editable labels
 commands.forEach(cmd => {
   let container = document.createElement('div');
   container.className = "btnContainer";
 
   let btn = document.createElement('button');
-  btn.className = "btn";
-  btn.dataset.cmd = cmd;
-  btn.innerText = cmd;
-
-  let input = document.createElement('input');
-  input.type = "text";
-  input.className = "labelInput";
-  input.value = cmd;
-
-  container.appendChild(btn);
-  container.appendChild(input);
-  buttonsDiv.appendChild(container);
-
-  // Button click sends fixed command to micro:bit
-  btn.addEventListener('click', () => {
-    sendText(btn.dataset.cmd);
-  });
-
-  // Update button label when input changes
-  input.addEventListener('input', () => {
-    btn.innerText = input.value;
-  });
-});
-
-// Connect to micro:bit
-async function connect() {
-  port = await navigator.serial.requestPort();
-  await port.open({ baudRate: 115200 });
-  writer = port.writable.getWriter();
-  readLoop();
-}
-
-async function readLoop() {
-  const reader = port.readable.getReader();
-  while(true) {
-    const { value, done } = await reader.read();
-    if (done) { reader.releaseLock(); break; }
-    if (value) {
-      let text = new TextDecoder().decode(value);
-      logDiv.innerText += text;
-      logDiv.scrollTop = logDiv.scrollHeight;
-    }
-  }
-}
-
-// Send text to micro:bit, ending with newline
-async function sendText(msg) {
-  if(writer) {
-    msg = msg + "\n"; 
-    await writer.write(new TextEncoder().encode(msg));
-    logDiv.innerText += "To Micro:bit → " + msg;
-    logDiv.scrollTop = logDiv.scrollHeight;
-  }
-}
-
-// Text input box - Enter key sends
-document.getElementById('textToSend').addEventListener('keydown', (e) => {
-  if(e.key === 'Enter') {
-    let msg = e.target.value.trim();
-    if(msg) {
-      sendText(msg);
-      e.target.value = "";
-    }
-  }
-});
-
-// Clear log button
-document.getElementById('clearLog').addEventListener('click', () => {
-  logDiv.innerText = "";
-});
-
-</script>
-
-<button onclick="connect()">Connect to Micro:bit</button>
-
-</body>
-</html>
+  btn
