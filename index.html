@@ -5,8 +5,12 @@
   <title>Micro:bit Serial Controller</title>
   <style>
     body { font-family: Arial, sans-serif; padding: 20px; }
-    button { margin: 5px; padding: 10px; }
+    button { margin: 5px; padding: 10px; font-size: 16px; }
     #messages { border: 1px solid #444; padding: 10px; height: 200px; overflow-y: auto; }
+    #textInput { font-size: 48px; padding: 10px; width: 90%; }
+    .button-row { display: flex; margin-bottom: 10px; }
+    .button-wrapper { margin-right: 5px; }
+    .button-wrapper input { width: 80px; font-size: 16px; margin-bottom: 2px; }
   </style>
 </head>
 <body>
@@ -15,14 +19,12 @@
   <button id="connect">🔌 Connect Micro:bit</button>
   <br><br>
 
-  <!-- 10 programmable buttons -->
+  <!-- 10 programmable buttons in 2 rows of 5 -->
   <div id="buttonContainer"></div>
   <br>
 
   <!-- Send free text -->
   <input id="textInput" type="text" placeholder="Type message to Micro:bit">
-  <button onclick="sendText()">Send</button>
-  <button onclick="clearLog()">Clear Log</button>
 
   <h3>Text from Micro:bit:</h3>
   <div id="messages"></div>
@@ -60,36 +62,47 @@ function log(text) {
   messages.scrollTop = messages.scrollHeight;
 }
 
-function clearLog() {
-  document.getElementById("messages").innerHTML = "";
-}
-
 function sendCommand(cmd) {
   if (writer) writer.write(new TextEncoder().encode(cmd + "\n"));
 }
 
-function sendText() {
-  const text = document.getElementById("textInput").value;
-  if (text) sendCommand(text);
+// Create 10 buttons in 2 rows of 5
+const container = document.getElementById("buttonContainer");
+for (let row = 0; row < 2; row++) {
+  const rowDiv = document.createElement("div");
+  rowDiv.className = "button-row";
+  for (let i = 0; i < 5; i++) {
+    const index = row * 5 + i;
+    const wrapper = document.createElement("div");
+    wrapper.className = "button-wrapper";
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.value = buttonLabels[index];
+
+    const btn = document.createElement("button");
+    btn.textContent = input.value;
+    btn.onclick = () => sendCommand(input.value);
+
+    input.oninput = () => btn.textContent = input.value;
+
+    wrapper.appendChild(input);
+    wrapper.appendChild(btn);
+    rowDiv.appendChild(wrapper);
+  }
+  container.appendChild(rowDiv);
 }
 
-// make 10 editable buttons
-const container = document.getElementById("buttonContainer");
-buttonLabels.forEach(label => {
-  const input = document.createElement("input");
-  input.type = "text";
-  input.value = label;
-  input.style.marginRight = "5px";
-
-  const btn = document.createElement("button");
-  btn.textContent = label;
-  btn.onclick = () => sendCommand(input.value);
-
-  input.oninput = () => btn.textContent = input.value;
-
-  container.appendChild(input);
-  container.appendChild(btn);
-  container.appendChild(document.createElement("br"));
+// Send text when Enter is pressed
+document.getElementById("textInput").addEventListener("keypress", function(e) {
+  if (e.key === "Enter") {
+    const text = e.target.value;
+    if (text) {
+      sendCommand(text);
+      e.target.value = "";
+    }
+    e.preventDefault();
+  }
 });
 
 document.getElementById("connect").onclick = connect;
