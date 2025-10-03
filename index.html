@@ -5,19 +5,28 @@
   <title>Micro:bit Interactive Kit</title>
   <style>
     body { font-family: sans-serif; padding: 20px; }
-    #buttons { margin-bottom: 10px; }
-    button { width: 120px; height: 40px; margin: 2px; font-size: 14px; }
-    #microbitText { width: 100%; height: 60px; font-size: 16px; padding: 4px; margin-bottom: 20px; }
-    canvas { border: 2px solid #333; background: #eee; }
+    #buttons { display:flex; flex-wrap:wrap; width:620px; margin-bottom:10px; }
+    button { width: 120px; height: 40px; margin:2px; font-size:14px; }
+    #messageInput { width: 250px; font-size:16px; }
+    #send { font-size:16px; }
+    #microbitText { width:100%; height:60px; font-size:16px; padding:4px; margin-bottom:20px; }
+    canvas { border: 2px solid #333; background:#eee; }
   </style>
 </head>
 <body>
   <h2>Micro:bit Interactive Kit</h2>
   <button id="connect">Connect to Micro:bit</button>
   
+  <h3>Send Commands via Buttons</h3>
+  <div id="buttons"></div>
+
+  <h3>Send Text to Micro:bit</h3>
+  <input type="text" id="messageInput" placeholder="Type message here">
+  <button id="send">Send</button>
+
   <h3>Text from Micro:bit:</h3>
   <textarea id="microbitText" readonly></textarea>
-  
+
   <h3>Catch the Stars Game</h3>
   <canvas id="gameCanvas" width="400" height="300"></canvas>
 
@@ -39,11 +48,12 @@
     }
 
     async function readSerial() {
+      const decoder = new TextDecoder();
       while(true) {
         const { value, done } = await reader.read();
         if(done) break;
         if(value) {
-          const msg = new TextDecoder().decode(value).trim();
+          const msg = decoder.decode(value).trim();
           handleMicrobitCommand(msg);
         }
       }
@@ -54,7 +64,49 @@
       await writer.write(new TextEncoder().encode(cmd + "\n"));
     }
 
-    // ------------------ Game Setup ------------------
+    // ------------------ 20 Editable Buttons ------------------
+    const buttonLabels = [
+      "LED1","LED2","LED3","LED4","LED5",
+      "SMILE","SAD","HEART","STAR","CLEAR",
+      "MUSIC1","MUSIC2","ARROWLEFT","ARROWRIGHT","FLASH",
+      "BITMAP1","BITMAP2","YES","NO","RANDOM"
+    ];
+    const commands = [...buttonLabels];
+
+    const buttonsDiv = document.getElementById("buttons");
+    buttonLabels.forEach((label, index) => {
+      const btn = document.createElement("button");
+      btn.innerText = label;
+      btn.onclick = () => sendCommand(commands[index]);
+      btn.ondblclick = () => {
+        const newLabel = prompt("Enter new button label:", btn.innerText);
+        if(newLabel && newLabel.trim() !== "") {
+          btn.innerText = newLabel.trim();
+          commands[index] = newLabel.trim().toUpperCase();
+        }
+      };
+      buttonsDiv.appendChild(btn);
+    });
+
+    // ------------------ Keyboard Input ------------------
+    document.getElementById("send").addEventListener("click", () => {
+      const text = document.getElementById("messageInput").value.trim();
+      if(text !== "") {
+        sendCommand(text);
+        document.getElementById("messageInput").value = "";
+      }
+    });
+
+    document.getElementById("messageInput").addEventListener("keydown", e => {
+      if(e.key === "Enter") {
+        e.preventDefault();
+        document.getElementById("send").click();
+      }
+    });
+
+    document.getElementById("connect").addEventListener("click", connect);
+
+    // ------------------ Micro:bit Command Handler & Game ------------------
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
     const player = { x: 200, y: 270, width: 30, height: 10, color: 'blue' };
@@ -62,9 +114,7 @@
     const starCount = 5;
     let score = 0;
 
-    for(let i=0;i<starCount;i++) {
-      stars.push({x: Math.random()*380, y: Math.random()*-300, width: 10, height: 10});
-    }
+    for(let i=0;i<starCount;i++) stars.push({x: Math.random()*380, y: Math.random()*-300, width: 10, height: 10});
 
     function handleMicrobitCommand(cmd) {
       // Display text from Micro:bit
@@ -79,7 +129,6 @@
         case "B_PRESSED": player.color = 'red'; setTimeout(()=>player.color='blue',200); break;
         case "SHAKE": stars.forEach(s=>s.y = Math.random()*-300); break;
       }
-      // Keep player in bounds
       if(player.x < 0) player.x = 0;
       if(player.x > canvas.width - player.width) player.x = canvas.width - player.width;
     }
@@ -115,8 +164,6 @@
     }
 
     updateGame();
-
-    document.getElementById("connect").addEventListener("click", connect);
   </script>
 </body>
 </html>
