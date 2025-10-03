@@ -9,14 +9,14 @@
     button { width: 120px; height: 40px; margin:2px; font-size:14px; }
     #messageInput { width: 250px; font-size:16px; }
     #send { font-size:16px; }
-    #microbitText { width:100%; height:60px; font-size:16px; padding:4px; margin-bottom:20px; }
+    #microbitText { width:100%; height:80px; font-size:16px; padding:4px; margin-bottom:20px; }
     canvas { border: 2px solid #333; background:#eee; display:block; margin-top:20px; }
   </style>
 </head>
 <body>
   <h2>Micro:bit Interactive Kit</h2>
   <button id="connect">Connect to Micro:bit</button>
-  
+
   <h3>Send Commands via Buttons</h3>
   <div id="buttons"></div>
 
@@ -67,6 +67,8 @@
       await writer.write(new TextEncoder().encode(cmd + "\n"));
     }
 
+    document.getElementById("connect").addEventListener("click", connect);
+
     // ------------------ 20 Editable Buttons ------------------
     const buttonLabels = [
       "LED1","LED2","LED3","LED4","LED5",
@@ -82,7 +84,7 @@
       btn.onclick = () => sendCommand(commands[index]);
       btn.ondblclick = () => {
         const newLabel = prompt("Enter new button label:", btn.innerText);
-        if(newLabel && newLabel.trim() !== "") {
+        if (newLabel && newLabel.trim() !== "") {
           btn.innerText = newLabel.trim();
           commands[index] = newLabel.trim().toUpperCase();
         }
@@ -91,71 +93,4 @@
     });
 
     // ------------------ Keyboard Input ------------------
-    const messageInput = document.getElementById("messageInput");
-    const sendButton = document.getElementById("send");
-    sendButton.addEventListener("click", () => {
-      const text = messageInput.value.trim();
-      if(text !== "") { sendCommand(text); messageInput.value = ""; }
-    });
-    messageInput.addEventListener("keydown", e => {
-      if(e.key === "Enter") { e.preventDefault(); sendButton.click(); }
-    });
-
-    document.getElementById("connect").addEventListener("click", connect);
-
-    // ------------------ Game Setup ------------------
-    const canvas = document.getElementById("gameCanvas");
-    const ctx = canvas.getContext("2d");
-    const player = { x: 200, y: 270, width: 30, height: 10, color: 'blue' };
-    const stars = [];
-    const starCount = 5;
-    let score = 0;
-
-    for(let i=0;i<starCount;i++) stars.push({x: Math.random()*380, y: Math.random()*-300, width: 10, height: 10});
-
-    function handleMicrobitCommand(cmd) {
-      // Show latest message
-      microbitText.value = cmd;
-      microbitText.scrollTop = microbitText.scrollHeight;
-
-      // Game actions
-      switch(cmd) {
-        case "TILT_LEFT": player.x -= 10; break;
-        case "TILT_RIGHT": player.x += 10; break;
-        case "A_PRESSED": player.color = 'green'; setTimeout(()=>player.color='blue',200); break;
-        case "B_PRESSED": player.color = 'red'; setTimeout(()=>player.color='blue',200); break;
-        case "SHAKE": stars.forEach(s=>s.y = Math.random()*-300); break;
-      }
-      if(player.x < 0) player.x = 0;
-      if(player.x > canvas.width - player.width) player.x = canvas.width - player.width;
-    }
-
-    function updateGame() {
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-      // Draw player
-      ctx.fillStyle = player.color;
-      ctx.fillRect(player.x, player.y, player.width, player.height);
-      // Update stars
-      ctx.fillStyle = 'gold';
-      for(let star of stars){
-        star.y += 2;
-        if(star.y > canvas.height) star.y = Math.random()*-300;
-        ctx.fillRect(star.x, star.y, star.width, star.height);
-        // Collision
-        if(star.x < player.x+player.width && star.x+star.width > player.x &&
-           star.y < player.y+player.height && star.y+star.height > player.y){
-             score += 1;
-             star.y = Math.random()*-300;
-           }
-      }
-      // Draw score
-      ctx.fillStyle = 'black';
-      ctx.font = '16px Arial';
-      ctx.fillText("Score: " + score, 10, 20);
-      requestAnimationFrame(updateGame);
-    }
-
-    updateGame();
-  </script>
-</body>
-</html>
+    con
