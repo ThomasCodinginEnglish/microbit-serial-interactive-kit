@@ -89,7 +89,7 @@ for (let row = 0; row < 2; row++) {
     input.value = buttonLabels[index];
 
     const btn = document.createElement("button");
-    btn.textContent = "Send";
+    btn.textContent = "Send";  // No label on the button itself
     btn.onclick = () => sendCommand(input.value);
 
     wrapper.appendChild(input);
