@@ -10,7 +10,7 @@
     #messageInput { width: 250px; font-size:16px; }
     #send { font-size:16px; }
     #microbitText { width:100%; height:60px; font-size:16px; padding:4px; margin-bottom:20px; }
-    canvas { border: 2px solid #333; background:#eee; }
+    canvas { border: 2px solid #333; background:#eee; display:block; margin-top:20px; }
   </style>
 </head>
 <body>
@@ -49,12 +49,15 @@
 
     async function readSerial() {
       const decoder = new TextDecoder();
+      let buffer = "";
       while(true) {
         const { value, done } = await reader.read();
         if(done) break;
         if(value) {
-          const msg = decoder.decode(value).trim();
-          handleMicrobitCommand(msg);
+          buffer += decoder.decode(value);
+          let lines = buffer.split("\n");
+          buffer = lines.pop();
+          lines.forEach(line => handleMicrobitCommand(line.trim()));
         }
       }
     }
@@ -72,7 +75,6 @@
       "BITMAP1","BITMAP2","YES","NO","RANDOM"
     ];
     const commands = [...buttonLabels];
-
     const buttonsDiv = document.getElementById("buttons");
     buttonLabels.forEach((label, index) => {
       const btn = document.createElement("button");
@@ -89,24 +91,19 @@
     });
 
     // ------------------ Keyboard Input ------------------
-    document.getElementById("send").addEventListener("click", () => {
-      const text = document.getElementById("messageInput").value.trim();
-      if(text !== "") {
-        sendCommand(text);
-        document.getElementById("messageInput").value = "";
-      }
+    const messageInput = document.getElementById("messageInput");
+    const sendButton = document.getElementById("send");
+    sendButton.addEventListener("click", () => {
+      const text = messageInput.value.trim();
+      if(text !== "") { sendCommand(text); messageInput.value = ""; }
     });
-
-    document.getElementById("messageInput").addEventListener("keydown", e => {
-      if(e.key === "Enter") {
-        e.preventDefault();
-        document.getElementById("send").click();
-      }
+    messageInput.addEventListener("keydown", e => {
+      if(e.key === "Enter") { e.preventDefault(); sendButton.click(); }
     });
 
     document.getElementById("connect").addEventListener("click", connect);
 
-    // ------------------ Micro:bit Command Handler & Game ------------------
+    // ------------------ Game Setup ------------------
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
     const player = { x: 200, y: 270, width: 30, height: 10, color: 'blue' };
@@ -117,11 +114,11 @@
     for(let i=0;i<starCount;i++) stars.push({x: Math.random()*380, y: Math.random()*-300, width: 10, height: 10});
 
     function handleMicrobitCommand(cmd) {
-      // Display text from Micro:bit
+      // Show latest message
       microbitText.value = cmd;
       microbitText.scrollTop = microbitText.scrollHeight;
 
-      // Game controls
+      // Game actions
       switch(cmd) {
         case "TILT_LEFT": player.x -= 10; break;
         case "TILT_RIGHT": player.x += 10; break;
@@ -135,31 +132,26 @@
 
     function updateGame() {
       ctx.clearRect(0,0,canvas.width,canvas.height);
-
       // Draw player
       ctx.fillStyle = player.color;
       ctx.fillRect(player.x, player.y, player.width, player.height);
-
-      // Update and draw stars
+      // Update stars
       ctx.fillStyle = 'gold';
       for(let star of stars){
         star.y += 2;
         if(star.y > canvas.height) star.y = Math.random()*-300;
         ctx.fillRect(star.x, star.y, star.width, star.height);
-
-        // Collision check
+        // Collision
         if(star.x < player.x+player.width && star.x+star.width > player.x &&
            star.y < player.y+player.height && star.y+star.height > player.y){
              score += 1;
              star.y = Math.random()*-300;
            }
       }
-
       // Draw score
       ctx.fillStyle = 'black';
       ctx.font = '16px Arial';
       ctx.fillText("Score: " + score, 10, 20);
-
       requestAnimationFrame(updateGame);
     }
 
