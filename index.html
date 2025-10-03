@@ -5,10 +5,12 @@
 <title>Micro:bit Serial Kit</title>
 <style>
   body { font-family: sans-serif; }
-  #buttons { display: flex; flex-wrap: wrap; width: 400px; }
-  .btn { width: 80px; height: 40px; margin: 5px; }
-  #log { width: 400px; height: 150px; border: 1px solid #aaa; overflow-y: auto; padding: 5px; }
-  #textToSend { width: 300px; font-size: 16px; }
+  #buttons { display: flex; flex-wrap: wrap; width: 450px; }
+  .btnContainer { display: flex; flex-direction: column; align-items: center; margin: 5px; }
+  .btn { width: 80px; height: 40px; margin-bottom: 2px; }
+  .labelInput { width: 80px; font-size: 14px; text-align: center; }
+  #log { width: 450px; height: 150px; border: 1px solid #aaa; overflow-y: auto; padding: 5px; }
+  #textToSend { width: 300px; font-size: 16px; margin-bottom: 10px; }
 </style>
 </head>
 <body>
@@ -25,26 +27,38 @@
 let port;
 let writer;
 let logDiv = document.getElementById('log');
-
-// Create 10 buttons with editable names
-let commands = ["LED1","LED2","LED3","LED4","LED5","SMILE","SAD","HEART","STAR","CLEAR"];
 let buttonsDiv = document.getElementById('buttons');
 
+// 10 commands
+let commands = ["LED1","LED2","LED3","LED4","LED5","SMILE","SAD","HEART","STAR","CLEAR"];
+
+// Create button containers
 commands.forEach(cmd => {
+  let container = document.createElement('div');
+  container.className = "btnContainer";
+
   let btn = document.createElement('button');
   btn.className = "btn";
   btn.dataset.cmd = cmd;
-  btn.contentEditable = true;      // Editable label
-  btn.innerText = cmd;             // Default display
-  buttonsDiv.appendChild(btn);
+  btn.innerText = cmd;
 
+  let input = document.createElement('input');
+  input.type = "text";
+  input.className = "labelInput";
+  input.value = cmd;
+
+  container.appendChild(btn);
+  container.appendChild(input);
+  buttonsDiv.appendChild(container);
+
+  // Button click sends fixed command to micro:bit
   btn.addEventListener('click', () => {
-    sendText(btn.dataset.cmd);    // Always send the fixed command
+    sendText(btn.dataset.cmd);
   });
 
-  // Optional: update visual text without changing command
-  btn.addEventListener('input', (e) => {
-    // Display text changes but cmd stays same
+  // Update button label when input changes
+  input.addEventListener('input', () => {
+    btn.innerText = input.value;
   });
 });
 
