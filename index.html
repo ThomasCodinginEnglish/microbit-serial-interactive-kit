@@ -1,119 +1,99 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="utf-8">
-<title>Micro:bit Serial Interactive Kit</title>
+<meta charset="UTF-8">
+<title>Micro:bit Serial Kit</title>
 <style>
-  body { font-family: sans-serif; padding: 10px; }
-  #buttons { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-bottom: 10px; }
-  button { padding: 10px; font-size: 16px; }
-  #sendBox { width: 100%; font-size: 20px; padding: 5px; }
-  #log { width: 100%; height: 200px; border: 1px solid #aaa; overflow-y: auto; padding: 5px; margin-top: 5px; white-space: pre-wrap; background: #f9f9f9; }
-  #controls { margin-bottom: 10px; }
+  body { font-family: sans-serif; }
+  #buttons { display: flex; flex-wrap: wrap; width: 400px; }
+  .btn { width: 80px; height: 40px; margin: 5px; }
+  #log { width: 400px; height: 150px; border: 1px solid #aaa; overflow-y: auto; padding: 5px; }
+  #textToSend { width: 300px; font-size: 18px; }
 </style>
 </head>
 <body>
 
-<h2>Micro:bit Serial Interactive Kit</h2>
-
+<h3>Send Text to Micro:bit</h3>
+<input type="text" id="textToSend" placeholder="Type text and press Enter">
 <div id="buttons">
-  <button data-cmd="LED1">LED1</button>
-  <button data-cmd="LED2">LED2</button>
-  <button data-cmd="LED3">LED3</button>
-  <button data-cmd="LED4">LED4</button>
-  <button data-cmd="LED5">LED5</button>
-  <button data-cmd="SMILE">SMILE</button>
-  <button data-cmd="SAD">SAD</button>
-  <button data-cmd="HEART">HEART</button>
-  <button data-cmd="STAR">STAR</button>
-  <button data-cmd="CLEAR">CLEAR</button>
+  <button class="btn" data-cmd="LED1">LED1</button>
+  <button class="btn" data-cmd="LED2">LED2</button>
+  <button class="btn" data-cmd="LED3">LED3</button>
+  <button class="btn" data-cmd="LED4">LED4</button>
+  <button class="btn" data-cmd="LED5">LED5</button>
+  <button class="btn" data-cmd="SMILE">SMILE</button>
+  <button class="btn" data-cmd="SAD">SAD</button>
+  <button class="btn" data-cmd="HEART">HEART</button>
+  <button class="btn" data-cmd="STAR">STAR</button>
+  <button class="btn" data-cmd="CLEAR">CLEAR</button>
 </div>
 
-<div id="controls">
-  <input type="text" id="sendBox" placeholder="Type message to Micro:bit" />
-  <button id="clearLog">Clear Log</button>
-</div>
-
+<h3>Text from Micro:bit</h3>
 <div id="log"></div>
+<button id="clearLog">Clear Log</button>
 
 <script>
 let port;
 let writer;
-let reader;
-
-const logDiv = document.getElementById('log');
-const sendBox = document.getElementById('sendBox');
-const clearBtn = document.getElementById('clearLog');
-
-// Append message to log
-function appendLog(msg) {
-    logDiv.textContent += msg + "\n";
-    logDiv.scrollTop = logDiv.scrollHeight;
-}
+let logDiv = document.getElementById('log');
 
 // Connect to micro:bit
 async function connect() {
-    try {
-        port = await navigator.serial.requestPort();
-        await port.open({ baudRate: 115200 });
-        appendLog("✅ Connected to micro:bit");
-
-        writer = port.writable.getWriter();
-        reader = port.readable.getReader();
-
-        readLoop();
-    } catch (err) {
-        appendLog("❌ " + err);
-    }
+  port = await navigator.serial.requestPort();
+  await port.open({ baudRate: 115200 });
+  writer = port.writable.getWriter();
+  readLoop();
 }
 
-// Read messages from micro:bit
 async function readLoop() {
-    const textDecoder = new TextDecoder();
-    while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        const msg = textDecoder.decode(value);
-        appendLog("From Micro:bit → " + msg);
+  const reader = port.readable.getReader();
+  while(true) {
+    const { value, done } = await reader.read();
+    if (done) { reader.releaseLock(); break; }
+    if (value) {
+      let text = new TextDecoder().decode(value);
+      logDiv.innerText += text;
+      logDiv.scrollTop = logDiv.scrollHeight;
     }
+  }
 }
 
-// Send text to micro:bit
-async function sendToMicrobit(msg) {
-    if (!writer) return;
-    const textEncoder = new TextEncoder();
-    await writer.write(textEncoder.encode(msg + "\n"));
-    appendLog("To Micro:bit → " + msg);
+// Send text to micro:bit, ending with newline
+async function sendText(msg) {
+  if(writer) {
+    msg = msg + "\n"; // ensures onDataReceived triggers properly
+    await writer.write(new TextEncoder().encode(msg));
+    logDiv.innerText += "To Micro:bit → " + msg;
+    logDiv.scrollTop = logDiv.scrollHeight;
+  }
 }
 
-// Buttons
-document.querySelectorAll('#buttons button').forEach(btn => {
-    btn.addEventListener('click', () => {
-        const cmd = btn.dataset.cmd;
-        sendToMicrobit(cmd);
-    });
+// Button clicks
+document.querySelectorAll('.btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    sendText(btn.dataset.cmd);
+  });
 });
 
-// Send text with Enter key
-sendBox.addEventListener('keydown', (e) => {
-    if (e.key === "Enter") {
-        const msg = sendBox.value.trim();
-        if (msg) sendToMicrobit(msg);
-        sendBox.value = "";
+// Text input box - Enter key sends
+document.getElementById('textToSend').addEventListener('keydown', (e) => {
+  if(e.key === 'Enter') {
+    let msg = e.target.value.trim();
+    if(msg) {
+      sendText(msg);
+      e.target.value = ""; // clear box
     }
+  }
 });
 
-// Clear log
-clearBtn.addEventListener('click', () => {
-    logDiv.textContent = "";
+// Clear log button
+document.getElementById('clearLog').addEventListener('click', () => {
+  logDiv.innerText = "";
 });
-
-// Auto-connect button (optional)
-const autoBtn = document.createElement('button');
-autoBtn.textContent = "Connect to Micro:bit";
-autoBtn.addEventListener('click', connect);
-document.body.insertBefore(autoBtn, document.body.firstChild);
 
 </script>
+
+<button onclick="connect()">Connect to Micro:bit</button>
+
 </body>
 </html>
