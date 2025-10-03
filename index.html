@@ -5,93 +5,116 @@
   <title>Micro:bit Interactive Kit</title>
   <style>
     body { font-family: sans-serif; padding: 20px; }
-    button { width: 140px; height: 40px; margin: 4px; font-size: 14px; }
-    #grid { display: flex; flex-wrap: wrap; width: 600px; margin-bottom: 20px; }
-    #log { border: 1px solid #ccc; height: 150px; overflow-y: auto; padding: 4px; margin-top: 10px; white-space: pre-wrap; }
-    input, #send { font-size: 16px; margin: 4px; }
+    #buttons { margin-bottom: 10px; }
+    button { width: 120px; height: 40px; margin: 2px; font-size: 14px; }
+    #microbitText { width: 100%; height: 60px; font-size: 16px; padding: 4px; margin-bottom: 20px; }
+    canvas { border: 2px solid #333; background: #eee; }
   </style>
 </head>
 <body>
   <h2>Micro:bit Interactive Kit</h2>
   <button id="connect">Connect to Micro:bit</button>
-  <div id="grid"></div>
-
-  <h3>Keyboard Input (send text to micro:bit)</h3>
-  <input type="text" id="message" placeholder="Type message here" size="30">
-  <button id="send">Send</button>
-
-  <h3>Log:</h3>
-  <pre id="log"></pre>
+  
+  <h3>Text from Micro:bit:</h3>
+  <textarea id="microbitText" readonly></textarea>
+  
+  <h3>Catch the Stars Game</h3>
+  <canvas id="gameCanvas" width="400" height="300"></canvas>
 
   <script>
-    let port, writer;
-    const log = document.getElementById("log");
-
-    // Default button labels
-    const defaultLabels = [
-      "LED1","LED2","LED3","LED4","LED5",
-      "SMILE","SAD","HEART","STAR","CLEAR",
-      "MUSIC1","MUSIC2","ARROWLEFT","ARROWRIGHT","FLASH",
-      "BITMAP1","BITMAP2","YES","NO","RANDOM"
-    ];
-
-    const buttons = [];
-    const commands = [...defaultLabels];
+    // ------------------ Serial Setup ------------------
+    let port, writer, reader;
+    const microbitText = document.getElementById("microbitText");
 
     async function connect() {
       try {
         port = await navigator.serial.requestPort();
         await port.open({ baudRate: 115200 });
         writer = port.writable.getWriter();
-        logMessage("Connected to micro:bit!");
-      } catch (err) {
-        logMessage("Error: " + err);
+        reader = port.readable.getReader();
+        readSerial();
+      } catch(err) {
+        alert("Error connecting to Micro:bit: " + err);
+      }
+    }
+
+    async function readSerial() {
+      while(true) {
+        const { value, done } = await reader.read();
+        if(done) break;
+        if(value) {
+          const msg = new TextDecoder().decode(value).trim();
+          handleMicrobitCommand(msg);
+        }
       }
     }
 
     async function sendCommand(cmd) {
-      if (!writer) { logMessage("Not connected!"); return; }
+      if(!writer) return;
       await writer.write(new TextEncoder().encode(cmd + "\n"));
-      logMessage("Sent: " + cmd);
     }
 
-    function logMessage(msg) {
-      log.innerText += msg + "\n";
-      log.scrollTop = log.scrollHeight;
+    // ------------------ Game Setup ------------------
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const player = { x: 200, y: 270, width: 30, height: 10, color: 'blue' };
+    const stars = [];
+    const starCount = 5;
+    let score = 0;
+
+    for(let i=0;i<starCount;i++) {
+      stars.push({x: Math.random()*380, y: Math.random()*-300, width: 10, height: 10});
     }
 
-    // Create editable buttons
-    const grid = document.getElementById("grid");
-    defaultLabels.forEach((label, index) => {
-      const btn = document.createElement("button");
-      btn.innerText = label;
-      btn.onclick = () => sendCommand(commands[index]);
-      btn.ondblclick = () => {
-        const newLabel = prompt("Enter new button label:", btn.innerText);
-        if (newLabel && newLabel.trim() !== "") {
-          btn.innerText = newLabel.trim();
-          commands[index] = newLabel.trim().toUpperCase();
-        }
-      };
-      grid.appendChild(btn);
-      buttons.push(btn);
-    });
+    function handleMicrobitCommand(cmd) {
+      // Display text from Micro:bit
+      microbitText.value = cmd;
+      microbitText.scrollTop = microbitText.scrollHeight;
 
-    // Keyboard input
-    document.getElementById("send").addEventListener("click", () => {
-      const text = document.getElementById("message").value;
-      if (text.trim() !== "") {
-        sendCommand(text.trim());
-        document.getElementById("message").value = "";
+      // Game controls
+      switch(cmd) {
+        case "TILT_LEFT": player.x -= 10; break;
+        case "TILT_RIGHT": player.x += 10; break;
+        case "A_PRESSED": player.color = 'green'; setTimeout(()=>player.color='blue',200); break;
+        case "B_PRESSED": player.color = 'red'; setTimeout(()=>player.color='blue',200); break;
+        case "SHAKE": stars.forEach(s=>s.y = Math.random()*-300); break;
       }
-    });
+      // Keep player in bounds
+      if(player.x < 0) player.x = 0;
+      if(player.x > canvas.width - player.width) player.x = canvas.width - player.width;
+    }
 
-    document.getElementById("message").addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        document.getElementById("send").click();
+    function updateGame() {
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+
+      // Draw player
+      ctx.fillStyle = player.color;
+      ctx.fillRect(player.x, player.y, player.width, player.height);
+
+      // Update and draw stars
+      ctx.fillStyle = 'gold';
+      for(let star of stars){
+        star.y += 2;
+        if(star.y > canvas.height) star.y = Math.random()*-300;
+        ctx.fillRect(star.x, star.y, star.width, star.height);
+
+        // Collision check
+        if(star.x < player.x+player.width && star.x+star.width > player.x &&
+           star.y < player.y+player.height && star.y+star.height > player.y){
+             score += 1;
+             star.y = Math.random()*-300;
+           }
       }
-    });
+
+      // Draw score
+      ctx.fillStyle = 'black';
+      ctx.font = '16px Arial';
+      ctx.fillText("Score: " + score, 10, 20);
+
+      requestAnimationFrame(updateGame);
+    }
+
+    updateGame();
 
     document.getElementById("connect").addEventListener("click", connect);
   </script>
