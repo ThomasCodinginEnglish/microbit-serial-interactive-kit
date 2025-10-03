@@ -1,158 +1,98 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="utf-8">
-<title>Micro:bit Interactive Kit</title>
-<style>
-body { font-family: sans-serif; padding:20px; }
-#buttons { display:flex; flex-wrap:wrap; width:620px; margin-bottom:10px; }
-button { width:120px; height:40px; margin:2px; font-size:14px; }
-#messageInput { width:250px; font-size:16px; }
-#send { font-size:16px; }
-#microbitText { width:100%; height:80px; font-size:16px; padding:4px; margin-bottom:20px; }
-canvas { border:2px solid #333; background:#eee; display:block; margin-top:20px; }
-</style>
+  <meta charset="utf-8">
+  <title>Micro:bit Serial Controller</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    button { margin: 5px; padding: 10px; }
+    #messages { border: 1px solid #444; padding: 10px; height: 200px; overflow-y: auto; }
+  </style>
 </head>
 <body>
-<h2>Micro:bit Interactive Kit</h2>
-<button id="connect">Connect to Micro:bit</button>
+  <h1>Micro:bit Serial Controller</h1>
 
-<h3>Send Commands via Buttons</h3>
-<div id="buttons"></div>
+  <button id="connect">🔌 Connect Micro:bit</button>
+  <br><br>
 
-<h3>Send Text to Micro:bit</h3>
-<input type="text" id="messageInput" placeholder="Type message here">
-<button id="send">Send</button>
+  <!-- 10 programmable buttons -->
+  <div id="buttonContainer"></div>
+  <br>
 
-<h3>Text from Micro:bit:</h3>
-<textarea id="microbitText" readonly></textarea>
+  <!-- Send free text -->
+  <input id="textInput" type="text" placeholder="Type message to Micro:bit">
+  <button onclick="sendText()">Send</button>
+  <button onclick="clearLog()">Clear Log</button>
 
-<h3>Catch the Stars Game</h3>
-<canvas id="gameCanvas" width="400" height="300"></canvas>
+  <h3>Text from Micro:bit:</h3>
+  <div id="messages"></div>
 
 <script>
-let port, writer, reader;
-const microbitText = document.getElementById("microbitText");
+let port, writer;
+const buttonLabels = ["LED1","LED2","LED3","LED4","LED5","SMILE","SAD","HEART","STAR","CLEAR"];
 
-// ------------------ Connect to micro:bit ------------------
 async function connect() {
-    try {
-        port = await navigator.serial.requestPort();
-        await port.open({ baudRate: 115200 });
-        writer = port.writable.getWriter();
-        reader = port.readable.getReader();
-        readSerial();
-    } catch(err) { alert("Error: "+err); }
+  try {
+    port = await navigator.serial.requestPort();
+    await port.open({ baudRate: 115200 });
+    writer = port.writable.getWriter();
+    readLoop();
+    log("✅ Connected to micro:bit");
+  } catch (e) {
+    log("❌ " + e);
+  }
 }
 
-async function readSerial() {
-    const decoder = new TextDecoder();
-    let buffer = "";
-    while(true) {
-        const { value, done } = await reader.read();
-        if(done) break;
-        if(value) {
-            // Check if numeric or text
-            const str = decoder.decode(value);
-            for(let ch of str) {
-                if(!isNaN(ch) && ch != "\n" && ch != "\r") {
-                    handleMicrobitNumber(Number(ch));
-                } else {
-                    buffer += ch;
-                    if(ch=="\n") {
-                        handleMicrobitCommand(buffer.trim());
-                        buffer="";
-                    }
-                }
-            }
-        }
-    }
+async function readLoop() {
+  const decoder = new TextDecoderStream();
+  port.readable.pipeTo(decoder.writable);
+  const reader = decoder.readable.getReader();
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    if (value) log(value.trim());
+  }
 }
 
-async function sendCommand(cmd) {
-    if(!writer) return;
-    await writer.write(new TextEncoder().encode(cmd+"\n"));
+function log(text) {
+  const messages = document.getElementById("messages");
+  messages.innerHTML += text + "<br>";
+  messages.scrollTop = messages.scrollHeight;
 }
 
-document.getElementById("connect").addEventListener("click", connect);
+function clearLog() {
+  document.getElementById("messages").innerHTML = "";
+}
 
-// ------------------ 20 buttons ------------------
-const buttonLabels = [
-  "LED1","LED2","LED3","LED4","LED5",
-  "SMILE","SAD","HEART","STAR","CLEAR",
-  "MUSIC1","MUSIC2","ARROWLEFT","ARROWRIGHT","FLASH",
-  "BITMAP1","BITMAP2","YES","NO","RANDOM"
-];
-const commands = [...buttonLabels];
-const buttonsDiv = document.getElementById("buttons");
-buttonLabels.forEach((label,index)=>{
-    const btn = document.createElement("button");
-    btn.innerText=label;
-    btn.onclick = ()=>sendCommand(commands[index]);
-    btn.ondblclick = ()=>{
-        const newLabel = prompt("Enter new button label:", btn.innerText);
-        if(newLabel && newLabel.trim()!="") {
-            btn.innerText = newLabel.trim();
-            commands[index] = newLabel.trim().toUpperCase();
-        }
-    };
-    buttonsDiv.appendChild(btn);
+function sendCommand(cmd) {
+  if (writer) writer.write(new TextEncoder().encode(cmd + "\n"));
+}
+
+function sendText() {
+  const text = document.getElementById("textInput").value;
+  if (text) sendCommand(text);
+}
+
+// make 10 editable buttons
+const container = document.getElementById("buttonContainer");
+buttonLabels.forEach(label => {
+  const input = document.createElement("input");
+  input.type = "text";
+  input.value = label;
+  input.style.marginRight = "5px";
+
+  const btn = document.createElement("button");
+  btn.textContent = label;
+  btn.onclick = () => sendCommand(input.value);
+
+  input.oninput = () => btn.textContent = input.value;
+
+  container.appendChild(input);
+  container.appendChild(btn);
+  container.appendChild(document.createElement("br"));
 });
 
-// ------------------ Keyboard input ------------------
-const messageInput = document.getElementById("messageInput");
-const sendButton = document.getElementById("send");
-sendButton.addEventListener("click", ()=>{ 
-    const text = messageInput.value.trim(); 
-    if(text!=""){ sendCommand(text); messageInput.value=""; }
-});
-messageInput.addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); sendButton.click(); }});
-
-// ------------------ Game ------------------
-const canvas=document.getElementById("gameCanvas");
-const ctx=canvas.getContext("2d");
-const player={x:200,y:270,width:30,height:10,color:'blue'};
-const stars=[];
-const starCount=5;
-let score=0;
-for(let i=0;i<starCount;i++) stars.push({x:Math.random()*380,y:Math.random()*-300,width:10,height:10});
-
-function handleMicrobitNumber(num){
-    // -1 = left, 1 = right, 2 = shake
-    if(num==-1) player.x-=10;
-    if(num==1) player.x+=10;
-    if(num==2) stars.forEach(s=>s.y=Math.random()*-300);
-    if(player.x<0) player.x=0;
-    if(player.x>canvas.width-player.width) player.x=canvas.width-player.width;
-}
-
-function handleMicrobitCommand(cmd){
-    microbitText.value += cmd+"\n";
-    microbitText.scrollTop = microbitText.scrollHeight;
-}
-
-function updateGame(){
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    ctx.fillStyle=player.color;
-    ctx.fillRect(player.x,player.y,player.width,player.height);
-    ctx.fillStyle='gold';
-    for(let star of stars){
-        star.y+=2;
-        if(star.y>canvas.height) star.y=Math.random()*-300;
-        ctx.fillRect(star.x,star.y,star.width,star.height);
-        if(star.x<player.x+player.width && star.x+star.width>player.x &&
-           star.y<player.y+player.height && star.y+star.height>player.y){
-            score+=1;
-            star.y=Math.random()*-300;
-        }
-    }
-    ctx.fillStyle='black';
-    ctx.font='16px Arial';
-    ctx.fillText("Score: "+score,10,20);
-    requestAnimationFrame(updateGame);
-}
-
-updateGame();
+document.getElementById("connect").onclick = connect;
 </script>
 </body>
 </html>
