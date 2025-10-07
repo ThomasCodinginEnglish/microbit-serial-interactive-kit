@@ -7,21 +7,31 @@
   <style>
     body {
       font-family: sans-serif;
-      background: #f5f5f5;
+      background: #f4f4f9;
       text-align: center;
       padding: 2rem;
     }
+    h2 {
+      color: #333;
+    }
     #log {
-      background: white;
+      background: #fff;
       border: 1px solid #ccc;
+      border-radius: 8px;
       padding: 1rem;
-      margin: 1rem auto;
       width: 90%;
       max-width: 600px;
-      height: 150px;
+      margin: 1rem auto;
+      height: 100px;
       overflow-y: auto;
-      white-space: pre-wrap;
       text-align: left;
+      font-size: 0.9rem;
+      white-space: pre-wrap;
+    }
+    #question {
+      font-size: 1.3rem;
+      margin: 1.5rem 0;
+      font-weight: bold;
     }
     .choice {
       display: block;
@@ -35,11 +45,10 @@
       color: white;
       font-size: 1.2rem;
       cursor: pointer;
+      transition: background 0.2s;
     }
-    .choice:hover { background: #0056b3; }
-    #question {
-      font-size: 1.3rem;
-      margin: 1rem 0;
+    .choice:hover {
+      background: #0056b3;
     }
   </style>
 </head>
@@ -48,11 +57,13 @@
   <button id="connect">Connect Microbit</button>
 
   <div id="log">[Not connected]</div>
+
   <div id="question"></div>
   <div id="choices"></div>
 
   <script>
     let port, reader, writer;
+    let buffer = '';
 
     const log = document.getElementById('log');
     const questionEl = document.getElementById('question');
@@ -80,11 +91,19 @@
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
-        if (value) handleSerialInput(value.trim());
+        if (value) {
+          buffer += value;
+          let lines = buffer.split('\n');
+          buffer = lines.pop(); // keep incomplete line
+          for (let line of lines) {
+            handleSerialLine(line.trim());
+          }
+        }
       }
     }
 
-    function handleSerialInput(line) {
+    function handleSerialLine(line) {
+      if (!line) return;
       appendLog('micro:bit: ' + line);
       if (line.startsWith('Q|')) {
         const parts = line.split('|');
@@ -93,7 +112,6 @@
           const optA = parts[2];
           const optB = parts[3];
           const optC = parts[4];
-          // correct answer letter is parts[5] (for web display only, not used here)
           displayQuestion(qText, [optA, optB, optC]);
         }
       }
@@ -105,7 +123,7 @@
       ['A', 'B', 'C'].forEach((label, i) => {
         const btn = document.createElement('button');
         btn.className = 'choice';
-        btn.textContent = `${label}: ${choices[i]}`;
+        btn.textContent = `${choices[i]}`;
         btn.onclick = () => sendAnswer(label);
         choicesEl.appendChild(btn);
       });
