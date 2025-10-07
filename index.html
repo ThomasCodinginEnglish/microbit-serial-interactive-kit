@@ -2,73 +2,106 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Micro:bit Chat</title>
+<title>💬 Micro:bit Serial Chat</title>
 <style>
   body {
     font-family: 'Comic Sans MS', cursive, sans-serif;
-    background: linear-gradient(135deg, #FFDEE9 0%, #B5FFFC 100%);
-    text-align: center;
-    color: #333;
+    background: url('https://raw.githubusercontent.com/ThomasCodinginEnglish/microbit-serial-interactive-kit/main/microbit-pc-serial-bg.jpg') no-repeat center center fixed;
+    background-size: cover;
+    color: #222;
     margin: 0;
-    padding: 20px;
+    padding: 0;
+    text-align: center;
   }
+
   h1 {
-    font-size: 2em;
+    font-size: 3em;
     color: #0066cc;
-    text-shadow: 2px 2px #ffffff;
+    margin-top: 40px;
+    text-shadow: 3px 3px #ffffff;
   }
+
   #chatBox {
     width: 80%;
-    max-width: 500px;
-    height: 250px;
-    border: 3px solid #ff69b4;
-    border-radius: 15px;
-    background-color: #fff;
-    margin: 20px auto;
-    padding: 10px;
+    max-width: 700px;
+    height: 300px;
+    margin: 30px auto;
+    background-color: rgba(255, 255, 255, 0.85);
+    border: 5px solid #ff69b4;
+    border-radius: 20px;
+    box-shadow: 5px 5px 15px rgba(0,0,0,0.3);
+    font-size: 1.8em;
     overflow-y: auto;
-    box-shadow: 3px 3px 10px rgba(0,0,0,0.2);
+    padding: 15px;
+    text-align: center;
   }
+
   #inputBox {
-    font-size: 18px;
-    padding: 10px;
+    font-size: 1.6em;
+    padding: 15px;
     width: 60%;
-    border-radius: 10px;
-    border: 2px solid #ffa500;
+    border-radius: 15px;
+    border: 3px solid #ffa500;
     outline: none;
-    margin-right: 10px;
+    margin-top: 10px;
   }
+
   #connectBtn, #clearBtn {
     background-color: #ff69b4;
     border: none;
-    border-radius: 10px;
-    padding: 10px 20px;
+    border-radius: 15px;
+    padding: 15px 30px;
     color: white;
-    font-size: 16px;
+    font-size: 1.6em;
     cursor: pointer;
+    margin: 15px;
     transition: 0.3s;
   }
+
   #connectBtn:hover, #clearBtn:hover {
     background-color: #ff85c1;
   }
+
   #sendHint {
-    color: #444;
-    font-size: 14px;
+    font-size: 1.4em;
+    color: #333;
+  }
+
+  .msg-user {
+    color: #0077ff;
+    margin: 10px 0;
+  }
+
+  .msg-mb {
+    color: #ff0077;
+    margin: 10px 0;
+  }
+
+  .msg-sys {
+    color: #009933;
+    font-style: italic;
+    margin: 10px 0;
   }
 </style>
 </head>
 <body>
 
 <h1>💬 Talk to your micro:bit!</h1>
-<div id="chatBox">👋 Press the <b>Connect</b> button to start chatting!</div>
+
+<div id="chatBox">
+  👋 Press <b>Connect</b> to start chatting with your micro:bit!
+</div>
 
 <div>
   <input id="inputBox" type="text" placeholder="Type your answer here...">
-  <button id="clearBtn">Clear Chat</button>
 </div>
 
-<p id="sendHint">Press <b>Enter</b> to send your answer</p>
-<button id="connectBtn">🔌 Connect to Micro:bit</button>
+<p id="sendHint">Press <b>Enter</b> to send your message to the micro:bit</p>
+
+<div>
+  <button id="connectBtn">🔌 Connect</button>
+  <button id="clearBtn">🧼 Clear Chat</button>
+</div>
 
 <script>
 let port, reader, writer;
@@ -77,8 +110,8 @@ const inputBox = document.getElementById('inputBox');
 
 function addMessage(text, from) {
   const msg = document.createElement('div');
-  msg.style.margin = '5px';
-  msg.innerHTML = (from === 'mb' ? '🤖 <b>micro:bit:</b> ' : '🧒 <b>You:</b> ') + text;
+  msg.className = from === 'mb' ? 'msg-mb' : from === 'user' ? 'msg-user' : 'msg-sys';
+  msg.innerHTML = (from === 'mb' ? '🤖 <b>micro:bit:</b> ' : from === 'user' ? '🧒 <b>You:</b> ' : '') + text;
   chatBox.appendChild(msg);
   chatBox.scrollTop = chatBox.scrollHeight;
 }
@@ -89,7 +122,7 @@ async function connectMicrobit() {
     await port.open({ baudRate: 115200 });
     writer = port.writable.getWriter();
     readFromMicrobit();
-    addMessage('✅ Connected! The micro:bit might ask you a question soon...', 'sys');
+    addMessage('✅ Connected! The micro:bit may ask you something soon...', 'sys');
   } catch (e) {
     addMessage('❌ Connection failed: ' + e, 'sys');
   }
