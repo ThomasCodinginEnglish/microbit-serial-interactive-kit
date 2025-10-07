@@ -1,131 +1,108 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Simple Micro:bit Serial Chat</title>
-<style>
-  body {
-    background-color: black;
-    color: white;
-    font-family: "GT Walsheim Pro", Arial, sans-serif;
-    text-align: center;
-    padding: 20px;
-  }
-
-  h1 {
-    color: #00ffff;
-    font-size: 2em;
-    margin-bottom: 20px;
-  }
-
-  #log {
-    width: 80%;
-    height: 300px;
-    background: #111;
-    border: 2px solid #00ffff;
-    border-radius: 10px;
-    margin: 0 auto 20px;
-    padding: 10px;
-    overflow-y: auto;
-    text-align: left;
-    font-size: 1.2em;
-    font-family: monospace;
-  }
-
-  input {
-    width: 70%;
-    padding: 12px;
-    font-size: 1.2em;
-    border-radius: 8px;
-    border: none;
-    outline: none;
-  }
-
-  button {
-    padding: 12px 20px;
-    font-size: 1em;
-    border: none;
-    border-radius: 8px;
-    margin: 10px;
-    background-color: #00ffff;
-    color: black;
-    cursor: pointer;
-  }
-
-  button:hover {
-    background-color: #00cccc;
-  }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Microbit Serial Chat</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f8f9fa;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem;
+    }
+    #log {
+      width: 90%;
+      height: 300px;
+      background: white;
+      border: 1px solid #ccc;
+      overflow-y: auto;
+      padding: 1rem;
+      margin: 1rem 0;
+      white-space: pre-wrap;
+    }
+    input, button {
+      font-size: 1rem;
+      padding: 0.5rem 1rem;
+      margin: 0.2rem;
+    }
+  </style>
 </head>
 <body>
-  <h1>💬 Micro:bit Serial Chat</h1>
+  <h2>Microbit Serial Chat</h2>
 
-  <button id="connectBtn">🔌 Connect</button>
-  <button id="clearBtn">🧹 Clear</button>
+  <button id="connect">Connect Microbit</button>
 
-  <div id="log"></div>
+  <div id="log">[Not connected]</div>
 
-  <input type="text" id="inputText" placeholder="Type a message and press Enter...">
+  <div>
+    <input id="input" type="text" placeholder="Type a message…" />
+    <button id="send">Send</button>
+  </div>
 
-<script>
-let port, reader, writer;
+  <script>
+    let port, reader, writer;
+    const log = document.getElementById('log');
+    const input = document.getElementById('input');
+    const sendBtn = document.getElementById('send');
+    const connectBtn = document.getElementById('connect');
 
-const log = document.getElementById('log');
-const inputText = document.getElementById('inputText');
-const connectBtn = document.getElementById('connectBtn');
-const clearBtn = document.getElementById('clearBtn');
-
-function logMessage(msg, prefix = "From Micro:bit") {
-  const entry = document.createElement("div");
-  entry.textContent = `${prefix} → ${msg}`;
-  log.appendChild(entry);
-  log.scrollTop = log.scrollHeight;
-}
-
-connectBtn.addEventListener("click", async () => {
-  try {
-    port = await navigator.serial.requestPort();
-    await port.open({ baudRate: 115200 });
-
-    const textDecoder = new TextDecoderStream();
-    const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
-    reader = textDecoder.readable.getReader();
-
-    const textEncoder = new TextEncoderStream();
-    const writableStreamClosed = textEncoder.readable.pipeTo(port.writable);
-    writer = textEncoder.writable.getWriter();
-
-    log.innerHTML = ""; // clear log on connect
-    logMessage("✅ Connected to micro:bit", "System");
-    readLoop();
-  } catch (err) {
-    logMessage("❌ " + err.message, "Error");
-  }
-});
-
-async function readLoop() {
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    if (value) logMessage(value.trim());
-  }
-}
-
-inputText.addEventListener("keydown", async (event) => {
-  if (event.key === "Enter") {
-    const text = inputText.value.trim();
-    if (text && writer) {
-      await writer.write(text + "\n");
-      logMessage(text, "To Micro:bit");
-      inputText.value = "";
+    function appendLog(message) {
+      log.textContent += message + '\n';
+      log.scrollTop = log.scrollHeight;
     }
-  }
-});
 
-clearBtn.addEventListener("click", () => {
-  log.innerHTML = "";
-});
-</script>
+    async function connect() {
+      try {
+        port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 115200 });
+        appendLog('✅ Connected to micro:bit');
+
+        writer = port.writable.getWriter();
+        reader = port.readable
+          .pipeThrough(new TextDecoderStream())
+          .getReader();
+
+        readLoop();
+      } catch (err) {
+        appendLog('❌ ' + err);
+      }
+    }
+
+    async function readLoop() {
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          if (value) appendLog('micro:bit: ' + value.trim());
+        }
+      } catch (err) {
+        appendLog('⚠️ Read error: ' + err);
+      }
+    }
+
+    async function send() {
+      if (!writer) {
+        appendLog('⚠️ Not connected.');
+        return;
+      }
+      const text = input.value + '\n';
+      await writer.write(new TextEncoder().encode(text));
+      appendLog('You: ' + input.value);
+      input.value = '';
+    }
+
+    connectBtn.addEventListener('click', connect);
+    sendBtn.addEventListener('click', send);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
+
+    // Feature detection
+    if (!('serial' in navigator)) {
+      appendLog('⚠️ Web Serial API not supported in this browser.\nUse Chrome or Edge.');
+      connectBtn.disabled = true;
+    }
+  </script>
 </body>
 </html>
