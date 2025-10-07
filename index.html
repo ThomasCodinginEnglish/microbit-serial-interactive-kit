@@ -1,149 +1,131 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Microbit Quiz Game</title>
-  <style>
-    body {
-      font-family: sans-serif;
-      background: #f4f4f9;
-      text-align: center;
-      padding: 2rem;
-    }
-    h2 {
-      color: #333;
-    }
-    #log {
-      background: #fff;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      padding: 1rem;
-      width: 90%;
-      max-width: 600px;
-      margin: 1rem auto;
-      height: 100px;
-      overflow-y: auto;
-      text-align: left;
-      font-size: 0.9rem;
-      white-space: pre-wrap;
-    }
-    #question {
-      font-size: 1.3rem;
-      margin: 1.5rem 0;
-      font-weight: bold;
-    }
-    .choice {
-      display: block;
-      margin: 0.5rem auto;
-      padding: 1rem;
-      width: 80%;
-      max-width: 300px;
-      border: none;
-      border-radius: 8px;
-      background: #007bff;
-      color: white;
-      font-size: 1.2rem;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    .choice:hover {
-      background: #0056b3;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simple Serial Terminal</title>
+<style>
+  body {
+    font-family: sans-serif;
+    background: #1e1e1e;
+    color: #eee;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0;
+    height: 100vh;
+  }
+  #terminal {
+    background: #000;
+    width: 90%;
+    height: 70%;
+    margin-top: 20px;
+    padding: 10px;
+    overflow-y: auto;
+    font-family: monospace;
+    border-radius: 5px;
+    box-shadow: 0 0 10px #000;
+  }
+  #input {
+    width: 90%;
+    margin-top: 10px;
+    padding: 8px;
+    font-family: monospace;
+    font-size: 16px;
+    border-radius: 5px;
+    border: none;
+  }
+  button {
+    margin-top: 10px;
+    padding: 10px 20px;
+    font-size: 16px;
+    border-radius: 5px;
+    border: none;
+    cursor: pointer;
+  }
+  button:disabled {
+    background: #555;
+    cursor: not-allowed;
+  }
+</style>
 </head>
 <body>
-  <h2>Microbit Quiz Game</h2>
-  <button id="connect">Connect Microbit</button>
 
-  <div id="log">[Not connected]</div>
+<h1>Simple Serial Terminal</h1>
+<button id="connectButton">Connect</button>
 
-  <div id="question"></div>
-  <div id="choices"></div>
+<div id="terminal"></div>
+<input type="text" id="input" placeholder="Type here..." disabled />
 
-  <script>
-    let port, reader, writer;
-    let buffer = '';
+<script>
+let port;
+let reader;
+let outputDone;
+let inputDone;
+let inputStream;
+let outputStream;
 
-    const log = document.getElementById('log');
-    const questionEl = document.getElementById('question');
-    const choicesEl = document.getElementById('choices');
+// Terminal elements
+const terminal = document.getElementById('terminal');
+const connectButton = document.getElementById('connectButton');
+const input = document.getElementById('input');
 
-    function appendLog(msg) {
-      log.textContent += msg + '\n';
-      log.scrollTop = log.scrollHeight;
-    }
+// Append message to terminal
+function logToTerminal(msg) {
+    terminal.textContent += msg;
+    terminal.scrollTop = terminal.scrollHeight;
+}
 
-    async function connect() {
-      try {
+// Connect to serial port
+async function connect() {
+    try {
         port = await navigator.serial.requestPort();
         await port.open({ baudRate: 115200 });
-        appendLog('✅ Connected to micro:bit');
-        writer = port.writable.getWriter();
-        reader = port.readable.pipeThrough(new TextDecoderStream()).getReader();
-        readLoop();
-      } catch (err) {
-        appendLog('❌ ' + err);
-      }
-    }
 
-    async function readLoop() {
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        if (value) {
-          buffer += value;
-          let lines = buffer.split('\n');
-          buffer = lines.pop(); // keep incomplete line
-          for (let line of lines) {
-            handleSerialLine(line.trim());
-          }
+        logToTerminal('Connected to port.\n');
+        input.disabled = false;
+        connectButton.disabled = true;
+
+        // Setup reader
+        while (port.readable) {
+            reader = port.readable.getReader();
+            try {
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    if (value) {
+                        logToTerminal(new TextDecoder().decode(value));
+                    }
+                }
+            } catch (err) {
+                console.error(err);
+            } finally {
+                reader.releaseLock();
+            }
         }
-      }
+    } catch (err) {
+        console.error('Error connecting to serial port:', err);
     }
+}
 
-    function handleSerialLine(line) {
-      if (!line) return;
-      appendLog('micro:bit: ' + line);
-      if (line.startsWith('Q|')) {
-        const parts = line.split('|');
-        if (parts.length >= 6) {
-          const qText = parts[1];
-          const optA = parts[2];
-          const optB = parts[3];
-          const optC = parts[4];
-          displayQuestion(qText, [optA, optB, optC]);
-        }
-      }
+// Send data to serial
+async function sendData(data) {
+    const writer = port.writable.getWriter();
+    await writer.write(new TextEncoder().encode(data + '\n'));
+    writer.releaseLock();
+}
+
+// Event listeners
+connectButton.addEventListener('click', connect);
+
+input.addEventListener('keydown', async (e) => {
+    if (e.key === 'Enter' && input.value) {
+        await sendData(input.value);
+        logToTerminal(`> ${input.value}\n`);
+        input.value = '';
     }
+});
+</script>
 
-    function displayQuestion(question, choices) {
-      questionEl.textContent = question;
-      choicesEl.innerHTML = '';
-      ['A', 'B', 'C'].forEach((label, i) => {
-        const btn = document.createElement('button');
-        btn.className = 'choice';
-        btn.textContent = `${choices[i]}`;
-        btn.onclick = () => sendAnswer(label);
-        choicesEl.appendChild(btn);
-      });
-    }
-
-    async function sendAnswer(letter) {
-      if (!writer) {
-        appendLog('⚠️ Not connected.');
-        return;
-      }
-      await writer.write(new TextEncoder().encode(letter + '\n'));
-      appendLog('You chose: ' + letter);
-    }
-
-    document.getElementById('connect').addEventListener('click', connect);
-
-    if (!('serial' in navigator)) {
-      appendLog('⚠️ Web Serial not supported. Use Chrome or Edge.');
-      document.getElementById('connect').disabled = true;
-    }
-  </script>
 </body>
 </html>
