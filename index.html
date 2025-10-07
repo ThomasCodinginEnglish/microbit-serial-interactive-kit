@@ -1,54 +1,132 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Micro:bit Serial Kit</title>
+<title>Micro:bit Chat</title>
 <style>
-  body { font-family: sans-serif; }
-  #buttons { display: flex; flex-wrap: wrap; width: 450px; }
-  .btnContainer { position: relative; width: 80px; height: 40px; margin: 5px; }
-  .btn { width: 100%; height: 100%; font-size: 14px; }
-  .labelOverlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+  body {
+    font-family: 'Comic Sans MS', cursive, sans-serif;
+    background: linear-gradient(135deg, #FFDEE9 0%, #B5FFFC 100%);
     text-align: center;
-    line-height: 40px;
-    pointer-events: auto;
-    background: transparent;
-    font-size: 14px;
-    border: none;
-    color: black;
+    color: #333;
+    margin: 0;
+    padding: 20px;
   }
-  #log { width: 450px; height: 150px; border: 1px solid #aaa; overflow-y: auto; padding: 5px; margin-top: 10px; }
-  #textToSend { width: 300px; font-size: 16px; margin-bottom: 10px; }
+  h1 {
+    font-size: 2em;
+    color: #0066cc;
+    text-shadow: 2px 2px #ffffff;
+  }
+  #chatBox {
+    width: 80%;
+    max-width: 500px;
+    height: 250px;
+    border: 3px solid #ff69b4;
+    border-radius: 15px;
+    background-color: #fff;
+    margin: 20px auto;
+    padding: 10px;
+    overflow-y: auto;
+    box-shadow: 3px 3px 10px rgba(0,0,0,0.2);
+  }
+  #inputBox {
+    font-size: 18px;
+    padding: 10px;
+    width: 60%;
+    border-radius: 10px;
+    border: 2px solid #ffa500;
+    outline: none;
+    margin-right: 10px;
+  }
+  #connectBtn, #clearBtn {
+    background-color: #ff69b4;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 20px;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+    transition: 0.3s;
+  }
+  #connectBtn:hover, #clearBtn:hover {
+    background-color: #ff85c1;
+  }
+  #sendHint {
+    color: #444;
+    font-size: 14px;
+  }
 </style>
 </head>
 <body>
 
-<h3>Send Text to Micro:bit</h3>
-<input type="text" id="textToSend" placeholder="Type text and press Enter">
-<div id="buttons"></div>
+<h1>💬 Talk to your micro:bit!</h1>
+<div id="chatBox">👋 Press the <b>Connect</b> button to start chatting!</div>
 
-<h3>Text from Micro:bit</h3>
-<div id="log"></div>
-<button id="clearLog">Clear Log</button>
+<div>
+  <input id="inputBox" type="text" placeholder="Type your answer here...">
+  <button id="clearBtn">Clear Chat</button>
+</div>
+
+<p id="sendHint">Press <b>Enter</b> to send your answer</p>
+<button id="connectBtn">🔌 Connect to Micro:bit</button>
 
 <script>
-let port;
-let writer;
-let logDiv = document.getElementById('log');
-let buttonsDiv = document.getElementById('buttons');
+let port, reader, writer;
+const chatBox = document.getElementById('chatBox');
+const inputBox = document.getElementById('inputBox');
 
-// 10 commands
-let commands = ["LED1","LED2","LED3","LED4","LED5","SMILE","SAD","HEART","STAR","CLEAR"];
+function addMessage(text, from) {
+  const msg = document.createElement('div');
+  msg.style.margin = '5px';
+  msg.innerHTML = (from === 'mb' ? '🤖 <b>micro:bit:</b> ' : '🧒 <b>You:</b> ') + text;
+  chatBox.appendChild(msg);
+  chatBox.scrollTop = chatBox.scrollHeight;
+}
 
-// Create buttons with overlay editable labels
-commands.forEach(cmd => {
-  let container = document.createElement('div');
-  container.className = "btnContainer";
+async function connectMicrobit() {
+  try {
+    port = await navigator.serial.requestPort();
+    await port.open({ baudRate: 115200 });
+    writer = port.writable.getWriter();
+    readFromMicrobit();
+    addMessage('✅ Connected! The micro:bit might ask you a question soon...', 'sys');
+  } catch (e) {
+    addMessage('❌ Connection failed: ' + e, 'sys');
+  }
+}
 
-  let btn = document.createElement('button');
-  btn
+async function readFromMicrobit() {
+  const decoder = new TextDecoderStream();
+  const readableStreamClosed = port.readable.pipeTo(decoder.writable);
+  const inputStream = decoder.readable;
+  reader = inputStream.getReader();
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    if (value) addMessage(value.trim(), 'mb');
+  }
+}
+
+async function sendText(text) {
+  if (!writer) return;
+  const data = new TextEncoder().encode(text + "\r");
+  await writer.write(data);
+  addMessage(text, 'user');
+}
+
+inputBox.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    const msg = inputBox.value.trim();
+    if (msg) {
+      sendText(msg);
+      inputBox.value = '';
+    }
+  }
+});
+
+document.getElementById('connectBtn').addEventListener('click', connectMicrobit);
+document.getElementById('clearBtn').addEventListener('click', () => chatBox.innerHTML = '🧼 Chat cleared!');
+
+</script>
+</body>
+</html>
