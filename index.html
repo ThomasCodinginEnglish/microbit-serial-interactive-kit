@@ -3,60 +3,82 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Micro:bit Serial Chat</title>
+<title>Simple Micro:bit Serial Chat</title>
 <style>
   body {
-    font-family: Arial, sans-serif;
-    background-color: #222;
-    color: #fff;
+    background-color: black;
+    color: white;
+    font-family: "GT Walsheim Pro", Arial, sans-serif;
     text-align: center;
     padding: 20px;
   }
+
   h1 {
-    color: #0ff;
+    color: #00ffff;
+    font-size: 2em;
+    margin-bottom: 20px;
   }
+
   #log {
     width: 80%;
     height: 300px;
-    border: 2px solid #0ff;
-    margin: 20px auto;
+    background: #111;
+    border: 2px solid #00ffff;
+    border-radius: 10px;
+    margin: 0 auto 20px;
     padding: 10px;
     overflow-y: auto;
     text-align: left;
-    background-color: #000;
+    font-size: 1.2em;
     font-family: monospace;
   }
+
   input {
-    width: 60%;
-    padding: 10px;
-    font-size: 16px;
+    width: 70%;
+    padding: 12px;
+    font-size: 1.2em;
+    border-radius: 8px;
+    border: none;
+    outline: none;
   }
+
   button {
-    padding: 10px 15px;
-    font-size: 16px;
-    margin: 5px;
+    padding: 12px 20px;
+    font-size: 1em;
+    border: none;
+    border-radius: 8px;
+    margin: 10px;
+    background-color: #00ffff;
+    color: black;
+    cursor: pointer;
+  }
+
+  button:hover {
+    background-color: #00cccc;
   }
 </style>
 </head>
 <body>
   <h1>💬 Micro:bit Serial Chat</h1>
+
   <button id="connectBtn">🔌 Connect</button>
-  <button id="clearBtn">🧹 Clear Log</button>
+  <button id="clearBtn">🧹 Clear</button>
+
   <div id="log"></div>
-  <input type="text" id="inputText" placeholder="Type a message..." />
-  <button id="sendBtn">📤 Send</button>
+
+  <input type="text" id="inputText" placeholder="Type a message and press Enter...">
 
 <script>
 let port, reader, writer;
+
 const log = document.getElementById('log');
 const inputText = document.getElementById('inputText');
 const connectBtn = document.getElementById('connectBtn');
-const sendBtn = document.getElementById('sendBtn');
 const clearBtn = document.getElementById('clearBtn');
 
-function appendLog(text, from = "From Micro:bit") {
+function logMessage(msg, prefix = "From Micro:bit") {
   const entry = document.createElement("div");
-  entry.textContent = `${from} → ${text}`;
+  entry.textContent = `${prefix} → ${msg}`;
   log.appendChild(entry);
   log.scrollTop = log.scrollHeight;
 }
@@ -74,10 +96,11 @@ connectBtn.addEventListener("click", async () => {
     const writableStreamClosed = textEncoder.readable.pipeTo(port.writable);
     writer = textEncoder.writable.getWriter();
 
-    appendLog("✅ Connected to micro:bit", "System");
+    log.innerHTML = ""; // clear log on connect
+    logMessage("✅ Connected to micro:bit", "System");
     readLoop();
   } catch (err) {
-    appendLog("❌ " + err, "Error");
+    logMessage("❌ " + err.message, "Error");
   }
 });
 
@@ -85,17 +108,18 @@ async function readLoop() {
   while (true) {
     const { value, done } = await reader.read();
     if (done) break;
-    if (value) appendLog(value.trim());
+    if (value) logMessage(value.trim());
   }
 }
 
-sendBtn.addEventListener("click", async () => {
-  if (!writer) return;
-  const text = inputText.value.trim();
-  if (text) {
-    await writer.write(text + "\n");
-    appendLog(text, "To Micro:bit");
-    inputText.value = "";
+inputText.addEventListener("keydown", async (event) => {
+  if (event.key === "Enter") {
+    const text = inputText.value.trim();
+    if (text && writer) {
+      await writer.write(text + "\n");
+      logMessage(text, "To Micro:bit");
+      inputText.value = "";
+    }
   }
 });
 
