@@ -3,129 +3,76 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Simple Serial Terminal</title>
+<title>Micro:bit Web Serial Demo</title>
 <style>
   body {
     font-family: sans-serif;
-    background: #1e1e1e;
-    color: #eee;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin: 0;
-    height: 100vh;
+    background-color: black;
+    color: white;
+    text-align: center;
+    margin-top: 50px;
   }
-  #terminal {
-    background: #000;
-    width: 90%;
-    height: 70%;
-    margin-top: 20px;
-    padding: 10px;
-    overflow-y: auto;
-    font-family: monospace;
-    border-radius: 5px;
-    box-shadow: 0 0 10px #000;
-  }
-  #input {
-    width: 90%;
-    margin-top: 10px;
-    padding: 8px;
-    font-family: monospace;
-    font-size: 16px;
-    border-radius: 5px;
-    border: none;
+  #game {
+    width: 200px;
+    height: 200px;
+    margin: 40px auto;
+    border-radius: 12px;
+    background-color: gray;
+    transition: background-color 0.2s ease;
   }
   button {
-    margin-top: 10px;
-    padding: 10px 20px;
-    font-size: 16px;
-    border-radius: 5px;
+    background: #1e90ff;
+    color: white;
     border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 16px;
     cursor: pointer;
   }
-  button:disabled {
-    background: #555;
-    cursor: not-allowed;
+  button:hover {
+    background: #0070ff;
   }
 </style>
 </head>
 <body>
-
-<h1>Simple Serial Terminal</h1>
-<button id="connectButton">Connect</button>
-
-<div id="terminal"></div>
-<input type="text" id="input" placeholder="Type here..." disabled />
+  <h1>🎮 Micro:bit Web Serial Game</h1>
+  <p>Press <b>A</b> or <b>B</b> on your micro:bit to change the color!</p>
+  <button id="connect">🔌 Connect Micro:bit</button>
+  <div id="game"></div>
 
 <script>
 let port;
 let reader;
-let outputDone;
-let inputDone;
-let inputStream;
-let outputStream;
+const gameBox = document.getElementById("game");
+const connectBtn = document.getElementById("connect");
 
-// Terminal elements
-const terminal = document.getElementById('terminal');
-const connectButton = document.getElementById('connectButton');
-const input = document.getElementById('input');
-
-// Append message to terminal
-function logToTerminal(msg) {
-    terminal.textContent += msg;
-    terminal.scrollTop = terminal.scrollHeight;
-}
-
-// Connect to serial port
-async function connect() {
-    try {
-        port = await navigator.serial.requestPort();
-        await port.open({ baudRate: 115200 });
-
-        logToTerminal('Connected to port.\n');
-        input.disabled = false;
-        connectButton.disabled = true;
-
-        // Setup reader
-        while (port.readable) {
-            reader = port.readable.getReader();
-            try {
-                while (true) {
-                    const { value, done } = await reader.read();
-                    if (done) break;
-                    if (value) {
-                        logToTerminal(new TextDecoder().decode(value));
-                    }
-                }
-            } catch (err) {
-                console.error(err);
-            } finally {
-                reader.releaseLock();
-            }
-        }
-    } catch (err) {
-        console.error('Error connecting to serial port:', err);
-    }
-}
-
-// Send data to serial
-async function sendData(data) {
-    const writer = port.writable.getWriter();
-    await writer.write(new TextEncoder().encode(data + '\n'));
-    writer.releaseLock();
-}
-
-// Event listeners
-connectButton.addEventListener('click', connect);
-
-input.addEventListener('keydown', async (e) => {
-    if (e.key === 'Enter' && input.value) {
-        await sendData(input.value);
-        logToTerminal(`> ${input.value}\n`);
-        input.value = '';
-    }
+connectBtn.addEventListener("click", async () => {
+  try {
+    port = await navigator.serial.requestPort();
+    await port.open({ baudRate: 115200 });
+    const decoder = new TextDecoderStream();
+    const readableStreamClosed = port.readable.pipeTo(decoder.writable);
+    reader = decoder.readable.getReader();
+    listenToMicrobit();
+  } catch (err) {
+    alert("Failed to connect: " + err);
+  }
 });
-</script>
 
+async function listenToMicrobit() {
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    if (!value) continue;
+
+    if (value.includes("A pressed")) {
+      gameBox.style.backgroundColor = "red";
+    }
+    if (value.includes("B pressed")) {
+      gameBox.style.backgroundColor = "blue";
+    }
+  }
+}
+</script>
 </body>
 </html>
