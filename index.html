@@ -35,7 +35,7 @@
 </style>
 </head>
 <body>
-  <h1>🎮 Micro:bit Web Serial Game</h1>
+  <h1>🎮 Micro:bit Serial Game</h1>
   <p>Press <b>A</b> or <b>B</b> on your micro:bit to change the color!</p>
   <button id="connect">🔌 Connect Micro:bit</button>
   <div id="game"></div>
@@ -65,11 +65,14 @@ async function listenToMicrobit() {
     if (done) break;
     if (!value) continue;
 
-    if (value.includes("A pressed")) {
+    if (value.includes("A")) {
       gameBox.style.backgroundColor = "red";
     }
-    if (value.includes("B pressed")) {
+    if (value.includes("B")) {
       gameBox.style.backgroundColor = "blue";
+    }
+    if (value.includes("C")) {
+      gameBox.style.backgroundColor = "orange";
     }
   }
 }
